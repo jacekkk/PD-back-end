@@ -1,5 +1,18 @@
 import graphene
-from graphene import Field, ObjectType, InputObjectType, String, Schema, Int, Float, DateTime, ID
+from graphene import (
+    Schema,
+    Mutation,
+    Field,
+    List,
+    ObjectType,
+    InputObjectType,
+    String,
+    Int,
+    Float,
+    DateTime,
+    ID,
+    Boolean
+)
 from graphene_mongo import MongoengineObjectType
 
 from models.user import User
@@ -23,17 +36,16 @@ class CreateUserInputType(InputObjectType):
 
 class AddRunInputType(InputObjectType):
     user_id = String(required=True)
-    time = Int(required=True)
+    time = Float(required=True)
     distance = Float(required=True)
     date = DateTime()
 
-class CreateUserMutation(graphene.Mutation):
+class CreateUserMutation(Mutation):
+    user = Field(UserType)
+    success = Boolean()
 
     class Arguments:
         user_input = CreateUserInputType(required=True)
-
-    user = Field(lambda: UserType)
-    success = graphene.Boolean()
         
     def mutate(self, info, user_input=None):
         user = User(
@@ -49,7 +61,7 @@ class CreateUserMutation(graphene.Mutation):
 
         return CreateUserMutation(user=user, success=success)
 
-class AddRunMutation(graphene.Mutation):
+class AddRunMutation(Mutation):
     run = Field(RunType)
 
     class Arguments:
@@ -64,19 +76,20 @@ class AddRunMutation(graphene.Mutation):
         )
 
         run.calories_burned = run.calculate_calories(
-            time=run_input.time,
-            distance=run_input.distance,
-            user_id=run_input.user_id
+            time=run.time,
+            distance=run.distance,
+            user_id=run.user_id
         )
 
-        user = User.objects.first()
+        user = User.objects.get(pk=run_input.user_id)
         user.runs.append(run)
         user.save()
+
         return AddRunMutation(run=run)
 
 class Query(ObjectType):
-    user = graphene.Field(UserType, user_id=graphene.String(required=True))
-    users = graphene.List(UserType)
+    user = Field(UserType, user_id=String(required=True))
+    users = List(UserType)
 
     def resolve_user(self, info, user_id):
         return User.objects.get(pk=user_id)
